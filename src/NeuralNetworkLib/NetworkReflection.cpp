@@ -1,4 +1,5 @@
 #include "NetworkReflection.h"
+
 #include <fstream>
 
 bool saveWeights(std::string filename, NetworkWeights &weights) {

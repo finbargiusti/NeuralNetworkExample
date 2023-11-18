@@ -1,4 +1,5 @@
 #include "NeuralNetwork.h"
+
 #include <iostream>
 #include <stdexcept>
 
@@ -6,7 +7,6 @@ NeuralNetwork::NeuralNetwork(Topology topology) {
   // Now we must initialise the network givin a topology;
 
   this->topology = topology; // for later reference.
-
 
   initialiseVectors();
   // initialise weights
@@ -44,7 +44,6 @@ void NeuralNetwork::initialiseVectors() {
   }
 }
 
-
 void NeuralNetwork::randomWeights() {
   for (Size layer_index = 1; layer_index < neurons.size(); layer_index++) {
     Size n, m;
@@ -76,8 +75,6 @@ Vector NeuralNetwork::generate(Vector input) {
         (*neurons[layer_index - 1]) * (*weights[layer_index - 1]);
 
     (*neurons[layer_index]) = preActivation[layer_index]->unaryExpr(&sigmoid);
-
-
   }
   // return output layer
   return *neurons.back();
@@ -91,7 +88,6 @@ void NeuralNetwork::propogateError(Vector expected) {
   // calculate error for output layer, taking the sigmoid derivative into
   // account
   (*error.back()) = (*neurons.back()) - expected;
-
 
   // calculate error for hidden layers
   for (Size layer_index = error.size() - 2; layer_index >= 0; layer_index--) {
@@ -158,12 +154,14 @@ void NeuralNetwork::teach(Vector input, Vector expected, Scalar learning_rate) {
   // update weights
   updateWeights(learning_rate);
 
-  std::cout << "Abolute error: " << error.back()->unaryExpr(&sabs).sum() << "\t\r" << std::flush;
+  std::cout << "Abolute error: " << error.back()->unaryExpr(&sabs).sum()
+            << "\t\r" << std::flush;
   // reset error
   resetError();
 }
 
-void NeuralNetwork::train(TrainingData data, Size epochs, Scalar learning_rate, bool updateAfterEpoch) {
+void NeuralNetwork::train(TrainingData data, Size epochs, Scalar learning_rate,
+                          bool updateAfterEpoch) {
 
   // train the network with a set of examples
   for (Size epoch = 0; epoch < epochs; epoch++) {

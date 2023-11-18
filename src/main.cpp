@@ -1,6 +1,7 @@
-#include <iostream>
 #include "NeuralNetwork.h"
 #include "NetworkReflection.h"
+
+#include <iostream>
 #include <fstream>
 
 bool file_exists(std::string filename);
