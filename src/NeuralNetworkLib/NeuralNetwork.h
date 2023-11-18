@@ -1,3 +1,4 @@
+#ifndef NEURALNETWORK_H
 // helpful library for matmul etc.
 #include "Eigen/Eigen"
 
@@ -22,44 +23,43 @@ typedef unsigned int Size;
 typedef std::vector<Vector *> NetworkData;
 typedef std::vector<Matrix *> NetworkWeights;
 
+struct TrainingDatum {
+  Vector input;
+  Vector expected;
+};
+
+typedef std::vector<TrainingDatum> TrainingData;
+
 class NeuralNetwork {
 public:
   // Initialise the neural network give topology and learning rate
-  NeuralNetwork(Topology topology, Scalar learning_rate = 0.01);
+  NeuralNetwork(Topology topology);
+  NeuralNetwork(Topology topology, NetworkWeights weights);
 
   // we need to add functions to read and write from disk.
   // (these will assume correctly formatted data so BE WARNED)
 
   // Fill the network weights with pseudo-random numbers
-  void randomWeights(int seed);
-
-  // Read the network weights from a file
-  // Returns false on any error
-  bool readWeights(std::string filename);
-
-  // Write the network weights to a file
-  // Returns false on any error
-  bool writeWeights(std::string filename);
-
+  void randomWeights();
 
   // Generate the output values of each neuron and to vector array.
   // NOTE: Will assume that the input is of the right size.
   Vector generate(Vector input);
 
   // train the network with an example
-  void teach(Vector input, Vector expected);
+  void teach(Vector input, Vector expected, Scalar leanring_rate);
 
-  void train(std::vector<Vector> input, std::vector<Vector> expected, Size epochs, bool updateAfterEpoch = true);
+  void train(TrainingData data, Size epochs, Scalar learning_rate, bool updateAfterEpoch = true);
 
   // update model weights with std. error.
-  void updateWeights();
-
-private:
+  void updateWeights(Scalar learning_rate);
 
   // update error values based on expected result.
   void propogateError(Vector expected);
 
   void resetError();
+
+  void initialiseVectors();
 
   // sigmoid activation function 
   const static Scalar sigmoid(Scalar x);
@@ -67,7 +67,6 @@ private:
   const static Scalar derivativeSigmoid(Scalar x);
 
   Size num_layers;
-  Scalar learning_rate;
 
   // how we will store the network in memory:
   
@@ -85,7 +84,12 @@ private:
 
   //  useful for logging purposes only
   //{
-  Size num_neurons;
-  Size training_epochs = 0;
+  Size training_epochs;
   //}
+
+
 };
+
+#endif
+
+#define NEURALNETWORK_H

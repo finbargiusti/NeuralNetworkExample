@@ -1,78 +1,113 @@
 #include <iostream>
 #include "NeuralNetwork.h"
+#include "NetworkReflection.h"
+#include <fstream>
 
-int main() {
-  // basic XOR example
+bool file_exists(std::string filename);
+
+int main(int argc, char **argv) {
+  // we get folder name as argv[1]
   
-  std::vector<Vector> input;
-  std::vector<Vector> expected;
-
-  // add the following XOR examples:
-  //
-  // 0, 0 -> 0
-  // 0, 1 -> 1
-  // 1, 0 -> 1
-  // 1, 1 -> 0
-  
-  Vector one = Vector::Ones(1);
-  Vector zero = Vector::Zero(1);
-
-  Vector zero_zero = Vector::Zero(2);
-  Vector zero_one = Vector::Zero(2);
-  zero_one.coeffRef(1) = 1.0;
-  Vector one_zero = Vector::Zero(2);
-  one_zero.coeffRef(0) = 1.0;
-  Vector one_one = Vector::Ones(2);
-
-  input.push_back(zero_zero);
-  expected.push_back(zero);
-
-  input.push_back(zero_one);
-  expected.push_back(one);
-
-  input.push_back(one_zero);
-  expected.push_back(one);
-
-  input.push_back(one_one);
-  expected.push_back(zero);
-
-  // define the topology of the network
-  
-  Topology topology;
-
-  topology.push_back(2);
-  topology.push_back(3);
-  topology.push_back(3);
-  topology.push_back(3);
-  topology.push_back(1); // output layer
-  
-  NeuralNetwork network(topology, 0.05);
-
-  network.randomWeights(0);
-
-  network.train(input, expected, 100000, false);
-
-  // test with inputs
-  
-  Scalar input1, input2;
-
-  while (true) {
-    // until break
-    std::cout << "Enter two numbers (0-1): ";
-    std::cin >> input1 >> input2;
-    
-    Vector cinput = Vector::Zero(2);
-
-    // TODO: this is shit.
-    cinput.coeffRef(0) = input1;
-    cinput.coeffRef(1) = input2;
-
-    std::cout << cinput;
-
-    Vector output = network.generate(cinput);
-    
-    // print output
-    //
-    std::cout << "Output: " << output.coeffRef(0) << std::endl;
+  if (argc < 2) {
+    std::cout << "Please provide a folder name to save to." << std::endl;
+    return 1;
   }
+
+  std::string folder_name = argv[1];
+
+  std::string topology_filename = folder_name + "/topology.txt";
+  std::string weights_filename = folder_name + "/weights.bin";
+  std::string training_data_filename = folder_name + "/training_data.txt";
+
+  if (!file_exists(topology_filename)) {
+    std::cout << "Topology file (topology.txt) does not exist." << std::endl;
+    return 1;
+  }
+
+  Scalar learning_rate = 0.01;
+
+  Topology topology = readTopology(topology_filename);
+
+  NeuralNetwork *network;
+
+  if (file_exists(weights_filename)) {
+    // load weights
+    NetworkWeights weights = readWeights(weights_filename, topology);
+    network = new NeuralNetwork(topology, weights);
+  } else {
+    // create new network
+    network = new NeuralNetwork(topology);
+  }
+
+  // main program loop
+
+  while (!std::cin.eof()) {
+
+    std::string command;
+
+    std::cout << "> ";
+
+    std::cin >> command; 
+
+    if (command == "exit") {
+      return 0;
+    }
+
+    if (command == "save") {
+      saveWeights(weights_filename, network->weights);
+      continue;
+    }
+
+    if (command == "train") {
+      if (!file_exists(training_data_filename)) {
+        std::cout << "Training data file (training_data.txt) does not exist." << std::endl;
+        continue;
+      }
+
+      Size epochs;
+
+      std::cin >> epochs;
+
+      TrainingData training_data = readTrainingData(training_data_filename, topology);
+
+      network->train(training_data, epochs, learning_rate);
+      continue;
+    }
+
+    if (command == "test") {
+      Size input_size = topology[0];
+
+      std::cout << "Input size: (" << input_size << " number): " << std::endl;
+
+      Vector input(input_size);
+
+      Scalar val;
+
+      for (Size i = 0; i < input_size; i++) {
+        std::cin >> val;
+        input.coeffRef(i) = val;
+      }
+
+      Vector output = network->generate(input);
+
+      std::cout << "Output: " << output <<  std::endl;
+      continue;
+    }
+
+    if (command == "rate") {
+      std::cin >> learning_rate;
+      continue;
+    }
+
+    std::cout << "Command not recognised." << std::endl;
+  }
+}
+bool file_exists(std::string filename) {
+  std::ifstream file (filename, std::ios::in);
+
+  bool res = file.is_open();
+
+  file.close();
+
+  return res;
 }

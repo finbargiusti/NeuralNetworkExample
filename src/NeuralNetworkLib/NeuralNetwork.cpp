@@ -2,18 +2,29 @@
 #include <iostream>
 #include <stdexcept>
 
-NeuralNetwork::NeuralNetwork(Topology topology, Scalar learning_rate) {
+NeuralNetwork::NeuralNetwork(Topology topology) {
   // Now we must initialise the network givin a topology;
 
   this->topology = topology; // for later reference.
-  this->learning_rate = learning_rate;
 
-  num_neurons = 0;
 
+  initialiseVectors();
+  // initialise weights
+  randomWeights();
+}
+
+NeuralNetwork::NeuralNetwork(Topology topology, NetworkWeights weights) {
+  // Now we must initialise the network givin a topology;
+
+  this->topology = topology; // for later reference.
+  this->weights = weights;
+
+  initialiseVectors();
+  // initialise weights
+}
+
+void NeuralNetwork::initialiseVectors() {
   for (Size layer_index = 0; layer_index < topology.size(); layer_index++) {
-
-    num_neurons += topology[layer_index];
-
     // for all layers but the output, we want to have an extra neuron value to
     // serve as the bias.
     Size layer_size = layer_index < topology.size() - 1
@@ -33,7 +44,8 @@ NeuralNetwork::NeuralNetwork(Topology topology, Scalar learning_rate) {
   }
 }
 
-void NeuralNetwork::randomWeights(int seed) {
+
+void NeuralNetwork::randomWeights() {
   for (Size layer_index = 1; layer_index < neurons.size(); layer_index++) {
     Size n, m;
     n = neurons[layer_index - 1]->size();
@@ -43,18 +55,6 @@ void NeuralNetwork::randomWeights(int seed) {
     // set eigien matrix coefficients to random values
     weights.back()->setRandom(n, m);
   }
-}
-
-bool NeuralNetwork::readWeights(std::string filename) {
-  // TODO:
-  // Implement
-  return false;
-}
-
-bool NeuralNetwork::writeWeights(std::string filename) {
-  // TODO:
-  // Implement
-  return false;
 }
 
 const Scalar NeuralNetwork::sigmoid(Scalar x) { return 1.0 / (1.0 + exp(-x)); }
@@ -92,7 +92,6 @@ void NeuralNetwork::propogateError(Vector expected) {
   // account
   (*error.back()) = (*neurons.back()) - expected;
 
-  std::cout << "Error: " << (*error.back())(0) << '\n';
 
   // calculate error for hidden layers
   for (Size layer_index = error.size() - 2; layer_index >= 0; layer_index--) {
@@ -128,7 +127,7 @@ void NeuralNetwork::resetError() {
   }
 }
 
-void NeuralNetwork::updateWeights() {
+void NeuralNetwork::updateWeights(Scalar learning_rate) {
   // update weights based on error and learning rate
   for (Size layer_index = 0; layer_index < weights.size(); layer_index++) {
 
@@ -149,35 +148,33 @@ void NeuralNetwork::updateWeights() {
   }
 }
 
-void NeuralNetwork::teach(Vector input, Vector expected) {
+Scalar sabs(Scalar x) { return x > 0 ? x : -x; }
+
+void NeuralNetwork::teach(Vector input, Vector expected, Scalar learning_rate) {
   // generate output
   generate(input);
   // propogate error
   propogateError(expected);
   // update weights
-  updateWeights();
+  updateWeights(learning_rate);
+
+  std::cout << "Abolute error: " << error.back()->unaryExpr(&sabs).sum() << "\t\r" << std::flush;
   // reset error
   resetError();
 }
 
-void NeuralNetwork::train(std::vector<Vector> input,
-                          std::vector<Vector> expected, Size epochs,
-                          bool updateAfterEpoch) {
+void NeuralNetwork::train(TrainingData data, Size epochs, Scalar learning_rate, bool updateAfterEpoch) {
 
   // train the network with a set of examples
   for (Size epoch = 0; epoch < epochs; epoch++) {
-    for (Size i = 0; i < input.size(); i++) {
-      teach(input[i], expected[i]);
+    for (Size i = 0; i < data.size(); i++) {
+      teach(data[i].input, data[i].expected, learning_rate);
     }
     // print error to screen
     // std::cout << "Epoch " << training_epochs + epoch << " complete." << '\n';
   }
 
-  // print out all weight matrices for manual inspection.
-  for (Size layer_index = 0; layer_index < weights.size(); layer_index++) {
-    std::cout << "Weights for layer " << layer_index << '\n'
-              << *weights[layer_index] << '\n';
-  } 
+  std::cout << "\n";
 
   training_epochs += epochs;
 }
