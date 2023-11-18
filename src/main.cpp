@@ -77,8 +77,6 @@ int main(int argc, char **argv) {
     if (command == "test") {
       Size input_size = topology[0];
 
-      std::cout << "Input size: (" << input_size << " number): " << std::endl;
-
       Vector input(input_size);
 
       Scalar val;
