@@ -55,6 +55,12 @@ public:
   // returns final error value
   void train(TrainingData data, Size epochs, Scalar bot_rate, Scalar top_rate, bool updateAfterEpoch = true);
 
+  // weights (aka vector of matrices for matmul)
+  NetworkWeights weights;
+
+  void setTrainStatisticHook(std::function<int(Size epoch, Scalar error, Scalar learning_rate)> hook);
+
+private:
   // update model weights with std. error.
   void updateWeights(Scalar learning_rate);
 
@@ -66,6 +72,8 @@ public:
 
   void initialiseVectors();
 
+
+  std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook;  
   // sigmoid activation function 
 
   Size num_layers;
@@ -80,9 +88,6 @@ public:
   NetworkData neurons;
   // calculated error for each layer's neurons
   NetworkData error;
-
-  // weights (aka vector of matrices for matmul)
-  NetworkWeights weights;
 
   //  useful for logging purposes only
   //{

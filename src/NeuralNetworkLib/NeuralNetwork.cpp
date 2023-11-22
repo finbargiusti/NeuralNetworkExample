@@ -5,6 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <stdexcept>
+#include <functional>
 #include <thread>
 
 NeuralNetwork::NeuralNetwork(Topology topology) {
@@ -161,6 +162,11 @@ Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size epoch) {
          (top_rate - bot_rate) * (epoch % CYCLE_LENGTH) / CYCLE_LENGTH;
 }
 
+void NeuralNetwork::setTrainStatisticHook(
+   std::function<int(Size epoch, Scalar error, Scalar learning_rate)> hook) {
+  trainStatisticHook = hook;
+}
+
 // returns final error
 // verbose (outputs to stdout)
 void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
@@ -191,15 +197,10 @@ void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
     if (epoch == epochs - 1)
       last_error = res_error;
 
-    std::cout << "epoch " << epoch << " average error: " << res_error
-              << " rate: " << dynamic_learning_rate << "\t\r" << std::flush;
+    trainStatisticHook(epoch, res_error, dynamic_learning_rate);
+
   }
 
-  // print average error for last epoch
-
-  std::cout << "\n Error went from " << first_error << " to " << last_error
-            << " over " << epochs << " epochs, with learning rate " << top_rate
-            << std::endl;
 
   training_epochs += epochs;
 }

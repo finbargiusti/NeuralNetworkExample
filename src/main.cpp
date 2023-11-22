@@ -91,7 +91,23 @@ int main(int argc, char **argv) {
 
       Size start_time = std::clock();
 
+      Scalar start_error;
+      Scalar end_error;
+
+      network->setTrainStatisticHook([&start_error, &end_error](Size epoch, Scalar error, Scalar learning_rate) -> int {
+        if (epoch == 0) start_error = error;
+        end_error = error;
+        std::cout << "epoch " << epoch << " average error: " << error
+                  << " rate: " << learning_rate << "\t\r" << std::flush;
+        return 1;
+      });
+
       network->train(training_data, epochs, top_rate, bot_rate);
+    // print average error for last epoch
+
+    std::cout << "\n Error went from " << start_error << " to " << end_error
+              << " over " << epochs << " epochs, with learning rate [" << bot_rate << " - " << top_rate << "]."
+              << std::endl;
 
       Size tot_time = std::clock() - start_time;
 
