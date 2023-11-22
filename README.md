@@ -1,16 +1,15 @@
 # COMP30230 Finbar Giusti (21372821) Neural Network assignment 
 
-To build the Makefiles:
+To configure the project you can run the `configure.sh` file, 
+which will create build directories `debug` and `release`.
+
+To build, simply run
 
 ```bash
-cmake src/;
+cmake --build [debug|release]
 ```
 
-To build the `main` executable:
-
-```bash
-make
-```
+From the root project directory
 
 # Usage:
 
