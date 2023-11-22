@@ -2,6 +2,8 @@
 // helpful library for matmul etc.
 #include "Eigen/Eigen"
 
+#include <queue>
+
 // Here we can define some types that will be used
 
 // we will use floats for scalars
@@ -47,14 +49,17 @@ public:
   Vector generate(Vector input);
 
   // train the network with an example
-  void teach(Vector input, Vector expected, Scalar leanring_rate);
+  // returns error vector
+  Vector teach(Vector input, Vector expected, Scalar leanring_rate);
 
-  void train(TrainingData data, Size epochs, Scalar learning_rate, bool updateAfterEpoch = true);
+  // returns final error value
+  void train(TrainingData data, Size epochs, Scalar bot_rate, Scalar top_rate, bool updateAfterEpoch = true);
 
   // update model weights with std. error.
   void updateWeights(Scalar learning_rate);
 
   // update error values based on expected result.
+  // returns error on output layer
   void propogateError(Vector expected);
 
   void resetError();
@@ -62,9 +67,6 @@ public:
   void initialiseVectors();
 
   // sigmoid activation function 
-  const static Scalar sigmoid(Scalar x);
-
-  const static Scalar derivativeSigmoid(Scalar x);
 
   Size num_layers;
 
@@ -90,6 +92,12 @@ public:
 
 };
 
+Scalar smooth(Scalar x);
+
+Scalar derivativeSmooth(Scalar x);
+
 #endif
 
 #define NEURALNETWORK_H
+
+

@@ -1,7 +1,11 @@
 #include "NeuralNetwork.h"
 
+#include <condition_variable>
 #include <iostream>
+#include <mutex>
+#include <queue>
 #include <stdexcept>
+#include <thread>
 
 NeuralNetwork::NeuralNetwork(Topology topology) {
   // Now we must initialise the network givin a topology;
@@ -56,10 +60,10 @@ void NeuralNetwork::randomWeights() {
   }
 }
 
-const Scalar NeuralNetwork::sigmoid(Scalar x) { return 1.0 / (1.0 + exp(-x)); }
+Scalar smooth(Scalar x) { return tanh(x); }
 
-const Scalar NeuralNetwork::derivativeSigmoid(Scalar x) {
-  return sigmoid(x) * pow((1.0 - sigmoid(x)), 2);
+Scalar derivativeSmooth(Scalar x) {
+  return 1.0 - (tanh(x) * tanh(x)); // derivative of tanh
 }
 
 Vector NeuralNetwork::generate(Vector input) {
@@ -74,7 +78,7 @@ Vector NeuralNetwork::generate(Vector input) {
     preActivation[layer_index]->noalias() =
         (*neurons[layer_index - 1]) * (*weights[layer_index - 1]);
 
-    (*neurons[layer_index]) = preActivation[layer_index]->unaryExpr(&sigmoid);
+    (*neurons[layer_index]) = preActivation[layer_index]->unaryExpr(&smooth);
   }
   // return output layer
   return *neurons.back();
@@ -92,25 +96,14 @@ void NeuralNetwork::propogateError(Vector expected) {
   // calculate error for hidden layers
   for (Size layer_index = error.size() - 2; layer_index >= 0; layer_index--) {
     // calculate error for hidden layers
-    error[layer_index]->noalias() =
-        (*error[layer_index + 1]) * (*weights[layer_index + 1]).transpose();
+  
+    (*error[layer_index]) = *error[layer_index + 1] * weights[layer_index + 1]->transpose();;
+    (*error[layer_index]) = error[layer_index]->cwiseProduct(preActivation[layer_index + 1]->unaryExpr(&derivativeSmooth));
 
     if (error[layer_index]->hasNaN()) {
-
       std::cout << "NaN in error!" << '\n' << *error[layer_index] << '\n';
       throw std::invalid_argument("Nan in error");
     }
-
-    // if (error[layer_index]->coeffRef(0) ==
-    // std::numeric_limits<Scalar>::infinity() ||
-    // error[layer_index]->coeffRef(0) ==
-    // -std::numeric_limits<Scalar>::infinity())
-    // {
-    //   std::cout << "Inf in error! 2" << '\n' << *error[layer_index] << '\n'
-    //   << *preActivation[layer_index] << '\n' << product << '\n' <<
-    //   *weights[layer_index] << '\n' << *error[layer_index + 1] << '\n'; throw
-    //   std::invalid_argument("Inf in error");
-    // };
 
     if (layer_index == 0)
       return; // HACK: WTF?
@@ -124,55 +117,89 @@ void NeuralNetwork::resetError() {
 }
 
 void NeuralNetwork::updateWeights(Scalar learning_rate) {
+
   // update weights based on error and learning rate
   for (Size layer_index = 0; layer_index < weights.size(); layer_index++) {
 
-    for (Size c = 0; c < weights[layer_index]->cols(); c++) {
-      for (Size r = 0; r < weights[layer_index]->rows(); r++) {
-        weights[layer_index]->coeffRef(r, c) -=
-            learning_rate * (*error[layer_index])(c) *
-            (preActivation[layer_index + 1]->unaryExpr(&derivativeSigmoid))(c) *
-            (*neurons[layer_index])(r);
+    Matrix *layer_weights = weights[layer_index];
+
+    for (int col = 0; col < layer_weights->cols(); col++) {
+      for (int row = 0; row < layer_weights->rows(); row++) {
+        Scalar delta = learning_rate * error[layer_index]->coeffRef(col) *
+                       neurons[layer_index]->coeffRef(row);
+        layer_weights->coeffRef(row, col) -= delta;
       }
     }
 
-    if (weights[layer_index]->hasNaN()) {
-
-      std::cout << "NaN in weights!" << '\n' << *error[layer_index] << '\n';
-      throw std::invalid_argument("Nan in weights");
-    };
   }
 }
 
 Scalar sabs(Scalar x) { return x > 0 ? x : -x; }
 
-void NeuralNetwork::teach(Vector input, Vector expected, Scalar learning_rate) {
+Vector NeuralNetwork::teach(Vector input, Vector expected,
+                            Scalar learning_rate) {
   // generate output
   generate(input);
   // propogate error
   propogateError(expected);
+  Vector score = *error.back();
   // update weights
   updateWeights(learning_rate);
-
-  std::cout << "Abolute error: " << error.back()->unaryExpr(&sabs).sum()
-            << "\t\r" << std::flush;
   // reset error
   resetError();
+
+  return score;
 }
 
-void NeuralNetwork::train(TrainingData data, Size epochs, Scalar learning_rate,
-                          bool updateAfterEpoch) {
+// TODO: make this configurable?
+#define DECAY_RATE 0.001
+#define CYCLE_LENGTH 1000
+
+// FIXME: horrible mess
+Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size epoch) {
+  return top_rate -
+         (top_rate - bot_rate) * (epoch % CYCLE_LENGTH) / CYCLE_LENGTH;
+}
+
+// returns final error
+// verbose (outputs to stdout)
+void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
+                          Scalar bot_rate, bool updateAfterEpoch) {
+
+  Scalar first_error, last_error;
 
   // train the network with a set of examples
   for (Size epoch = 0; epoch < epochs; epoch++) {
+
+    Scalar res_error = 0.0;
+
+    // calculate dynamic learning rate
+
+    Scalar dynamic_learning_rate = dyn_learning_rate(top_rate, bot_rate, epoch);
+
     for (Size i = 0; i < data.size(); i++) {
-      teach(data[i].input, data[i].expected, learning_rate);
+      Vector score =
+          teach(data[i].input, data[i].expected, dynamic_learning_rate);
+      res_error += score.unaryExpr(&sabs).sum();
     }
-    // print error to screen
-    // std::cout << "Epoch " << training_epochs + epoch << " complete." << '\n';
+
+    res_error /= data.size();
+
+    if (epoch == 0)
+      first_error = res_error;
+
+    if (epoch == epochs - 1)
+      last_error = res_error;
+
+    std::cout << "epoch " << epoch << " average error: " << res_error
+              << " rate: " << dynamic_learning_rate << "\t\r" << std::flush;
   }
 
-  std::cout << "\n";
+  // print average error for last epoch
+
+  std::cout << "\n Error went from " << first_error << " to " << last_error
+            << " over " << epochs << " epochs, with learning rate " << top_rate
+            << std::endl;
 
   training_epochs += epochs;
 }

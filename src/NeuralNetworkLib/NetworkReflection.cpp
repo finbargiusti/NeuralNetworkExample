@@ -112,7 +112,7 @@ TrainingData readTrainingData(std::string filename, Topology topology) {
   input_size = topology[0];
   expected_size = topology.back();
 
-  Size n;
+  Scalar n;
 
   while (!file.eof()) {
     Vector input (input_size);
