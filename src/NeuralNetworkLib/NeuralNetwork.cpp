@@ -156,10 +156,9 @@ Vector NeuralNetwork::teach(Vector input, Vector expected,
 #define DECAY_RATE 0.001
 #define CYCLE_LENGTH 1000
 
-// FIXME: horrible mess
 Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size epoch) {
-  return top_rate -
-         (top_rate - bot_rate) * (epoch % CYCLE_LENGTH) / CYCLE_LENGTH;
+  return (top_rate - ((top_rate - bot_rate) * ((epoch % CYCLE_LENGTH) / CYCLE_LENGTH))) / 
+          (1 + DECAY_RATE * epoch);
 }
 
 void NeuralNetwork::setTrainStatisticHook(
