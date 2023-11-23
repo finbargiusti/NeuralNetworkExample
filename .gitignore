@@ -12,3 +12,10 @@
 **/.DS_Store
 ./NeuralNetworkLib/
 ./main
+.Rproj.user
+debug/NeuralNetworkLib/libNeuralNetworkLib.a
+networks/.RData
+networks/.Rhistory
+networks/networks.Rproj
+debug/main
+release

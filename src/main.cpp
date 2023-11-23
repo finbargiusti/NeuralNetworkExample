@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <ctime>
+#include <string>
 
 
 bool file_exists(std::string filename);
@@ -54,19 +55,26 @@ int main(int argc, char **argv) {
 
   // main program loop
 
+  std::vector<std::string> tokens;
+  std::string input;
+
   while (!std::cin.eof()) {
 
-    std::string command;
+    tokens.clear();
 
     std::cout << "> ";
 
-    std::cin >> command; 
+    getline(std::cin, input);
 
-    if (command == "exit") {
+    std::istringstream input_stream(input);
+
+    for (std::string command; std::getline(input_stream, command, ' '); tokens.push_back(command));
+
+    if (tokens[0] == "exit") {
       return 0;
     }
 
-    if (command == "save") {
+    if (tokens[0] == "save") {
       if (saveWeights(weights_filename, network->weights)) {
         print_info("Weights saved to file " + weights_filename + ".");
       } else {
@@ -75,17 +83,37 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    if (command == "train") {
+    if (tokens[0] == "train") {
+
+      if (tokens.size() < 3) {
+        print_error("Usage: train <epochs> <statistics file (relative to network dir)>");
+        continue;
+      }
+
+      std::string statistics_filename = folder_name + "/" + tokens[2];
+
       if (!file_exists(training_data_filename)) {
         print_error("Training data file (training_data.txt) does not exist.");
         continue;
       }
 
-      Size epochs;
+      if (file_exists(statistics_filename)) {
+        print_error("Statistics file already exists. Please delete it or choose a different name.");
+        continue;
+      }
 
-      std::cin >> epochs;
+      std::ofstream statistics_file(statistics_filename, std::ios::out);
 
-      print_info("Training network for " + std::to_string(epochs) + "  epochs.");
+      if (!statistics_file.is_open()) {
+        print_error("Failed to open statistics file for writing.");
+        continue;
+      }
+
+      statistics_file << "epoch,error,learning_rate" << std::endl;
+
+      Size epochs = std::stoi(tokens[1]);
+
+      print_info("Training network for " + tokens[1] + "  epochs.");
 
       TrainingData training_data = readTrainingData(training_data_filename, topology);
 
@@ -94,20 +122,24 @@ int main(int argc, char **argv) {
       Scalar start_error;
       Scalar end_error;
 
-      network->setTrainStatisticHook([&start_error, &end_error](Size epoch, Scalar error, Scalar learning_rate) -> int {
+      network->setTrainStatisticHook([&start_error, &end_error, &statistics_file](Size epoch, Scalar error, Scalar learning_rate) -> int {
         if (epoch == 0) start_error = error;
         end_error = error;
         std::cout << "epoch " << epoch << " average error: " << error
                   << " rate: " << learning_rate << "\t\r" << std::flush;
+
+        statistics_file << epoch << "," << error << "," << learning_rate << std::endl;
         return 1;
       });
 
       network->train(training_data, epochs, top_rate, bot_rate);
     // print average error for last epoch
 
-    std::cout << "\n Error went from " << start_error << " to " << end_error
+      std::cout << "\n Error went from " << start_error << " to " << end_error
               << " over " << epochs << " epochs, with learning rate [" << bot_rate << " - " << top_rate << "]."
               << std::endl;
+
+      statistics_file.close();
 
       Size tot_time = std::clock() - start_time;
 
@@ -122,15 +154,22 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    if (command == "test") {
+    if (tokens[0] == "generate") {
+
+
       Size input_size = topology[0];
+
+      if (tokens.size() < 1 + input_size) {
+        print_error("Usage: generate <inputs (size = " + std::to_string(input_size) + ")>");
+        continue;
+      }
 
       Vector input(input_size);
 
       Scalar val;
 
       for (Size i = 0; i < input_size; i++) {
-        std::cin >> val;
+        val = std::stof(tokens[1 + i]);
         input.coeffRef(i) = val;
       }
 
@@ -140,8 +179,13 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    if (command == "rate") {
-      std::cin >> bot_rate >> top_rate;
+    if (tokens[0] == "rate") {
+      if (tokens.size() < 3) {
+        print_error("Usage: rate <top rate> <bot rate>");
+        continue;
+      }
+      top_rate = std::stof(tokens[1]);
+      bot_rate =  std::stof(tokens[2]);
       continue;
     }
 
