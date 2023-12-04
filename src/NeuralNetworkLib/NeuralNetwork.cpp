@@ -54,6 +54,9 @@ void NeuralNetwork::randomWeights() {
     Size n, m;
     n = neurons[layer_index - 1]->size();
     m = neurons[layer_index]->size();
+    if (layer_index < neurons.size() - 1)
+      m--; // remove bias neuron from next layer
+
     weights.push_back(new Matrix(n, m));
 
     // set eigien matrix coefficients to random values
@@ -75,11 +78,17 @@ Vector NeuralNetwork::generate(Vector input) {
 
   for (Size layer_index = 1; layer_index < neurons.size(); layer_index++) {
 
-    // calculate preActivation
-    preActivation[layer_index]->noalias() =
+    Size num_to_update = neurons[layer_index]->size() - 1;
+    
+    if (layer_index == neurons.size()- 1)
+      num_to_update++;
+
+    // calculate preActivation for this layer (excluding bias)
+    preActivation[layer_index]->block(0, 0, 1, num_to_update) =
         (*neurons[layer_index - 1]) * (*weights[layer_index - 1]);
 
-    (*neurons[layer_index]) = preActivation[layer_index]->unaryExpr(&smooth);
+    neurons[layer_index]->block(0, 0, 1, num_to_update) = 
+      preActivation[layer_index]->block(0, 0, 1, num_to_update).unaryExpr(&smooth);
   }
   // return output layer
   return *neurons.back();
@@ -97,9 +106,16 @@ void NeuralNetwork::propogateError(Vector expected) {
   // calculate error for hidden layers
   for (Size layer_index = error.size() - 2; layer_index >= 0; layer_index--) {
     // calculate error for hidden layers
+    
+    Size erring_neurons = error[layer_index + 1]->size() - 1;
+
+    if (layer_index == error.size() - 2)
+      erring_neurons++;
   
-    (*error[layer_index]) = *error[layer_index + 1] * weights[layer_index + 1]->transpose();;
-    (*error[layer_index]) = error[layer_index]->cwiseProduct(preActivation[layer_index + 1]->unaryExpr(&derivativeSmooth));
+    (*error[layer_index]) = 
+      error[layer_index + 1]->block(0, 0, 1, erring_neurons) * weights[layer_index + 1]->transpose();;
+    (*error[layer_index]) = 
+      error[layer_index]->cwiseProduct(preActivation[layer_index + 1]->unaryExpr(&derivativeSmooth));
 
     if (error[layer_index]->hasNaN()) {
       std::cout << "NaN in error!" << '\n' << *error[layer_index] << '\n';

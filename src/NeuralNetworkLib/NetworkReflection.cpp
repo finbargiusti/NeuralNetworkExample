@@ -49,13 +49,8 @@ NetworkWeights &readWeights(std::string filename, Topology &topology){
   for (Size layer_index = 1; layer_index < topology.size(); layer_index++) {
     Size rows, cols;
 
-    if (layer_index == topology.size() - 1) {
-      rows = topology[layer_index - 1] + 1;
-      cols = topology[layer_index];
-    } else {
-      rows = topology[layer_index - 1] + 1;
-      cols = topology[layer_index] + 1;
-    }
+    rows = topology[layer_index - 1] + 1;
+    cols = topology[layer_index];
 
     Matrix *weightMatrix = new Matrix(rows, cols);
 
