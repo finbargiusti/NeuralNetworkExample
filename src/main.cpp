@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    print_error( "Command not recognised." );
+    print_error( "Command not recognised: " + tokens[0] + ".");
   }
 }
 bool file_exists(std::string filename) {
