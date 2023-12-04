@@ -180,6 +180,42 @@ int main(int argc, char **argv) {
       continue;
     }
 
+    if (tokens[0] == "test") {
+      if (tokens.size() < 3) {
+        print_error("Usage: test <test data file (relative to network dir)> <test output gile>");
+        continue;
+      }
+
+      std::string test_data_filename = folder_name + "/" + tokens[1];
+
+      if (!file_exists(test_data_filename)) {
+        print_error("Test data file does not exist.");
+        continue;
+      }
+
+      std::string test_output_filename = folder_name + "/" + tokens[2];
+
+      if (file_exists(test_output_filename)) {
+        print_error("Test output file already exists.");
+        continue;
+      }
+
+      TrainingData test_data = readTrainingData(test_data_filename, topology);
+
+      std::ofstream statistics_file(test_output_filename, std::ios::out);
+
+      statistics_file << "input,output,error" << std::endl;
+
+      Scalar average_error = network->test(test_data, [&statistics_file](Vector input, Vector output, Scalar error) -> int {
+        statistics_file << "" << input << "," << output << "," << error << "\n";
+        return 1;
+      });
+
+      std::cout << "Average error: " << average_error << std::endl;
+
+      continue;
+    }
+
     if (tokens[0] == "rate") {
       if (tokens.size() < 3) {
         print_error("Usage: rate <top rate> <bot rate>");

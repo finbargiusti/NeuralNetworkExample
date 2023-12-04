@@ -211,3 +211,20 @@ void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
 
   training_epochs += epochs;
 }
+
+Scalar NeuralNetwork::test(TrainingData data, std::function<int (Vector, Vector, Scalar)> testHook) {
+  // test the network with a set of examples
+  
+  Scalar res_error = 0.0;
+
+  for (Size i = 0; i < data.size(); i++) {
+    Vector output = generate(data[i].input);
+    auto error = (output - data[i].expected).unaryExpr(&sabs).sum();
+    testHook(data[i].input, output, error);
+    res_error += error;
+  }
+
+  res_error /= data.size();
+
+  return res_error;
+}

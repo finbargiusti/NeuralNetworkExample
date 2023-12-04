@@ -52,7 +52,7 @@ public:
   void train(TrainingData data, Size epochs, Scalar bot_rate, Scalar top_rate, std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook);
 
   // test on a set of data, and return the average absolute error
-  Scalar test(TrainingData data, std::function<int(Vector input, Vector output)> testHook);
+  Scalar test(TrainingData data, std::function<int(Vector input, Vector output, Scalar error)> testHook);
 
   // weights (aka vector of matrices for matmul)
   NetworkWeights weights;
