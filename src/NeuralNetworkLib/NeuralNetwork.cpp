@@ -177,15 +177,8 @@ Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size epoch) {
           (1 + DECAY_RATE * epoch);
 }
 
-void NeuralNetwork::setTrainStatisticHook(
-   std::function<int(Size epoch, Scalar error, Scalar learning_rate)> hook) {
-  trainStatisticHook = hook;
-}
-
-// returns final error
-// verbose (outputs to stdout)
 void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
-                          Scalar bot_rate, bool updateAfterEpoch) {
+                          Scalar bot_rate, std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook) {
 
   Scalar first_error, last_error;
 
@@ -213,7 +206,6 @@ void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
       last_error = res_error;
 
     trainStatisticHook(epoch, res_error, dynamic_learning_rate);
-
   }
 
 

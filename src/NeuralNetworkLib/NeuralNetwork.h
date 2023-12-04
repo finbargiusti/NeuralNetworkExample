@@ -48,21 +48,22 @@ public:
   // NOTE: Will assume that the input is of the right size.
   Vector generate(Vector input);
 
-  // train the network with an example
-  // returns error vector
-  Vector teach(Vector input, Vector expected, Scalar leanring_rate);
-
   // returns final error value
-  void train(TrainingData data, Size epochs, Scalar bot_rate, Scalar top_rate, bool updateAfterEpoch = true);
+  void train(TrainingData data, Size epochs, Scalar bot_rate, Scalar top_rate, std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook);
+
+  // test on a set of data, and return the average absolute error
+  Scalar test(TrainingData data, std::function<int(Vector input, Vector output)> testHook);
 
   // weights (aka vector of matrices for matmul)
   NetworkWeights weights;
 
-  void setTrainStatisticHook(std::function<int(Size epoch, Scalar error, Scalar learning_rate)> hook);
-
 private:
   // update model weights with std. error.
   void updateWeights(Scalar learning_rate);
+
+  // train the network with an example
+  // returns error vector
+  Vector teach(Vector input, Vector expected, Scalar leanring_rate);
 
   // update error values based on expected result.
   // returns error on output layer
@@ -73,7 +74,7 @@ private:
   void initialiseVectors();
 
 
-  std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook;  
+  
   // sigmoid activation function 
 
   Size num_layers;

@@ -122,7 +122,8 @@ int main(int argc, char **argv) {
       Scalar start_error;
       Scalar end_error;
 
-      network->setTrainStatisticHook([&start_error, &end_error, &statistics_file](Size epoch, Scalar error, Scalar learning_rate) -> int {
+      auto hook = [&start_error, &end_error, &statistics_file]
+        (Size epoch, Scalar error, Scalar learning_rate) -> int {
         if (epoch == 0) start_error = error;
         end_error = error;
         std::cout << "epoch " << epoch << " average error: " << error
@@ -130,9 +131,9 @@ int main(int argc, char **argv) {
 
         statistics_file << epoch << "," << error << "," << learning_rate << std::endl;
         return 1;
-      });
+      };
 
-      network->train(training_data, epochs, top_rate, bot_rate);
+      network->train(training_data, epochs, top_rate, bot_rate, hook);
     // print average error for last epoch
 
       std::cout << "\n Error went from " << start_error << " to " << end_error
