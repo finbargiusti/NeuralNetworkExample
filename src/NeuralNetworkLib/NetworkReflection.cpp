@@ -180,6 +180,8 @@ Configuration readConfiguration(std::string filename) {
     config->output_activation = SIGMOID;
   else if (str == "binary")
     config->output_activation = BINARY;
+  else if (str == "softmax")
+    config->output_activation = SOFTMAX;
   else if (str == "none")
     config->output_activation = NONE;
   else

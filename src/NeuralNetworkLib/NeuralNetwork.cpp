@@ -1,4 +1,5 @@
 #include "NeuralNetwork.h"
+#include "maths.h"
 
 #include <condition_variable>
 #include <functional>
@@ -68,39 +69,6 @@ void NeuralNetwork::randomWeights() {
   }
 }
 
-std::function<Scalar(Scalar)> unaryActivation(ActivationFunction a) {
-  switch (a) {
-  case ActivationFunction::SIGMOID:
-    return [](Scalar x) -> Scalar { return 1.0 / (1.0 + exp(-x)); };
-  case ActivationFunction::TANH:
-    return [](Scalar x) -> Scalar { return tanh(x); };
-  case ActivationFunction::BINARY:
-    return [](Scalar x) -> Scalar {
-      if (x > 0)
-        return 1.0;
-      else
-        return 0.0;
-    };
-  default:
-    // none
-    return [](Scalar x) -> Scalar { return x; };
-  }
-}
-
-std::function<Scalar(Scalar)> unaryActivationDerivative(ActivationFunction a) {
-  switch (a) {
-  case ActivationFunction::SIGMOID:
-    return [](Scalar x) -> Scalar {
-      return (1.0 / (1.0 + exp(-x))) * (1 - 1.0 / (1.0 + exp(-x)));
-    };
-  case ActivationFunction::TANH:
-    return [](Scalar x) -> Scalar { return 1 - tanh(x) * tanh(x); };
-  default:
-    // none or binary
-    return [](Scalar x) -> Scalar { return 1.0; };
-  }
-}
-
 Vector NeuralNetwork::generate(Vector input) {
 
   // set input layer to input (excluding bias)
@@ -137,9 +105,7 @@ void NeuralNetwork::propogateError(Vector expected) {
   // weights after a btch of training examples. We will set the number of
   // examples until weights are updated in the train function.
 
-  // calculate error for output layer, taking the sigmoid derivative into
-  // account
-  (*error.back()) = (*neurons.back()) - expected;
+  (*error.back()) = (*neurons.back() - expected);
 
   // calculate error for hidden layers
   for (Size layer_index = error.size() - 2; layer_index >= 0; layer_index--) {
@@ -150,6 +116,7 @@ void NeuralNetwork::propogateError(Vector expected) {
     if (layer_index == error.size() - 2)
       erring_neurons++;
 
+    // calculate error for this layer
     (*error[layer_index]) =
         error[layer_index + 1]->block(0, 0, 1, erring_neurons) *
         weights[layer_index + 1]->transpose();
@@ -198,8 +165,6 @@ void NeuralNetwork::updateWeights(Scalar learning_rate) {
   }
 }
 
-Scalar sabs(Scalar x) { return x > 0 ? x : -x; }
-
 Vector NeuralNetwork::teach(Vector input, Vector expected,
                             Scalar learning_rate) {
   // generate output
@@ -213,13 +178,6 @@ Vector NeuralNetwork::teach(Vector input, Vector expected,
   resetError();
 
   return score;
-}
-
-Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size cycle_length,
-                         Scalar decay_rate, Size epoch) {
-  return (top_rate -
-          ((top_rate - bot_rate) * ((epoch % cycle_length) / cycle_length))) /
-         (1 + decay_rate * epoch);
 }
 
 void NeuralNetwork::train(
@@ -258,21 +216,24 @@ void NeuralNetwork::train(
   }
 }
 
-Scalar
-NeuralNetwork::test(TrainingData data,
+Scalar NeuralNetwork::test(TrainingData data,
                     std::function<int(Vector, Vector, Scalar)> testHook) {
   // test the network with a set of examples
 
-  Scalar res_error = 0.0;
+  Scalar accuracy = 0.0;
 
   for (Size i = 0; i < data.size(); i++) {
     Vector output = generate(data[i].input);
     auto error = (output - data[i].expected).unaryExpr(&sabs).sum();
     testHook(data[i].input, output, error);
-    res_error += error;
+    if (output.size() > 1) {
+      accuracy++;
+    } else {
+      accuracy += error;
+    }
   }
 
-  res_error /= data.size();
+  accuracy /= data.size();
 
-  return res_error;
+  return accuracy;
 }
