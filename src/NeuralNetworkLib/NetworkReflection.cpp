@@ -130,3 +130,60 @@ TrainingData readTrainingData(std::string filename, Topology topology) {
 
   return *trainingData;
 };
+
+Configuration readConfiguration(std::string filename) {
+  std::ifstream file (filename, std::ios::in);
+
+  Configuration *config = new Configuration();
+
+  if (!file.is_open()) {
+    // FIX: maybe an exception?
+   
+    // opening error
+    return *config;
+  }
+
+  Scalar sca;
+  Size n;
+  std::string str;
+
+  file >> sca;
+  config->top_rate = sca;
+
+  file >> sca;
+  config->bot_rate = sca;
+
+  file >> sca;
+  config->decay_rate = sca;
+
+  file >> n;
+  config->cycle_length = sca;
+
+  file >> str;
+
+  if (str == "tanh")
+    config->hidden_activation = TANH;
+  else if (str == "sigmoid")
+    config->hidden_activation = SIGMOID;
+  else if (str == "binary")
+    config->hidden_activation = BINARY;
+  else if (str == "none")
+    config->hidden_activation = NONE;
+  else
+    config->hidden_activation = NONE;
+
+  file >> str;
+
+  if (str == "tanh")
+    config->output_activation = TANH;
+  else if (str == "sigmoid")
+    config->output_activation = SIGMOID;
+  else if (str == "binary")
+    config->output_activation = BINARY;
+  else if (str == "none")
+    config->output_activation = NONE;
+  else
+    config->output_activation = NONE;
+
+  return *config;
+};

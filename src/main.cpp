@@ -28,14 +28,22 @@ int main(int argc, char **argv) {
   std::string topology_filename = folder_name + "/topology.txt";
   std::string weights_filename = folder_name + "/weights.bin";
   std::string training_data_filename = folder_name + "/training_data.txt";
+  std::string configuration_filename = folder_name + "/config.txt";
 
   if (!file_exists(topology_filename)) {
     print_error("Topology file (topology.txt) does not exist.");
     return 1;
   }
 
+  if (!file_exists(configuration_filename)) {
+    print_error("Configuration file (config.txt) does not exist.");
+    return 1;
+  }
+
   Scalar top_rate = 0.01;
   Scalar bot_rate = 0.0001;
+
+  Configuration config = readConfiguration(configuration_filename);
 
   Topology topology = readTopology(topology_filename);
 
@@ -46,11 +54,11 @@ int main(int argc, char **argv) {
     // load weights
     NetworkWeights weights = readWeights(weights_filename, topology);
     print_info("Weights loaded.");
-    network = new NeuralNetwork(topology, weights);
+    network = new NeuralNetwork(config, topology, weights);
   } else {
     print_info("No weights file found. Creating new network with random weights...");
     // create new network
-    network = new NeuralNetwork(topology);
+    network = new NeuralNetwork(config, topology);
   }
 
   // main program loop
@@ -133,7 +141,7 @@ int main(int argc, char **argv) {
         return 1;
       };
 
-      network->train(training_data, epochs, top_rate, bot_rate, hook);
+      network->train(training_data, epochs, hook);
     // print average error for last epoch
 
       std::cout << "\n Error went from " << start_error << " to " << end_error
@@ -213,16 +221,6 @@ int main(int argc, char **argv) {
 
       std::cout << "Average error: " << average_error << std::endl;
 
-      continue;
-    }
-
-    if (tokens[0] == "rate") {
-      if (tokens.size() < 3) {
-        print_error("Usage: rate <top rate> <bot rate>");
-        continue;
-      }
-      top_rate = std::stof(tokens[1]);
-      bot_rate =  std::stof(tokens[2]);
       continue;
     }
 

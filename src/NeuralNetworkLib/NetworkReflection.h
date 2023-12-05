@@ -21,6 +21,8 @@ Topology &readTopology(std::string filename);
 
 TrainingData readTrainingData(std::string filename, Topology topology);
 
+Configuration readConfiguration(std::string filename);
+
 #endif
 
 #define NETWORKREFLECTION_H

@@ -1,15 +1,16 @@
 #include "NeuralNetwork.h"
 
 #include <condition_variable>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <queue>
 #include <stdexcept>
-#include <functional>
 #include <thread>
 
-NeuralNetwork::NeuralNetwork(Topology topology) {
+NeuralNetwork::NeuralNetwork(Configuration c, Topology topology) {
   // Now we must initialise the network givin a topology;
+  this->config = c;
 
   this->topology = topology; // for later reference.
 
@@ -18,8 +19,11 @@ NeuralNetwork::NeuralNetwork(Topology topology) {
   randomWeights();
 }
 
-NeuralNetwork::NeuralNetwork(Topology topology, NetworkWeights weights) {
+NeuralNetwork::NeuralNetwork(Configuration c, Topology topology,
+                             NetworkWeights weights) {
   // Now we must initialise the network givin a topology;
+
+  this->config = c;
 
   this->topology = topology; // for later reference.
   this->weights = weights;
@@ -64,10 +68,37 @@ void NeuralNetwork::randomWeights() {
   }
 }
 
-Scalar smooth(Scalar x) { return tanh(x); }
+std::function<Scalar(Scalar)> unaryActivation(ActivationFunction a) {
+  switch (a) {
+  case ActivationFunction::SIGMOID:
+    return [](Scalar x) -> Scalar { return 1.0 / (1.0 + exp(-x)); };
+  case ActivationFunction::TANH:
+    return [](Scalar x) -> Scalar { return tanh(x); };
+  case ActivationFunction::BINARY:
+    return [](Scalar x) -> Scalar {
+      if (x > 0)
+        return 1.0;
+      else
+        return 0.0;
+    };
+  default:
+    // none
+    return [](Scalar x) -> Scalar { return x; };
+  }
+}
 
-Scalar derivativeSmooth(Scalar x) {
-  return 1.0 - (tanh(x) * tanh(x)); // derivative of tanh
+std::function<Scalar(Scalar)> unaryActivationDerivative(ActivationFunction a) {
+  switch (a) {
+  case ActivationFunction::SIGMOID:
+    return [](Scalar x) -> Scalar {
+      return (1.0 / (1.0 + exp(-x))) * (1 - 1.0 / (1.0 + exp(-x)));
+    };
+  case ActivationFunction::TANH:
+    return [](Scalar x) -> Scalar { return 1 - tanh(x) * tanh(x); };
+  default:
+    // none or binary
+    return [](Scalar x) -> Scalar { return 1.0; };
+  }
 }
 
 Vector NeuralNetwork::generate(Vector input) {
@@ -79,16 +110,23 @@ Vector NeuralNetwork::generate(Vector input) {
   for (Size layer_index = 1; layer_index < neurons.size(); layer_index++) {
 
     Size num_to_update = neurons[layer_index]->size() - 1;
-    
-    if (layer_index == neurons.size()- 1)
+
+    if (layer_index == neurons.size() - 1)
       num_to_update++;
 
     // calculate preActivation for this layer (excluding bias)
     preActivation[layer_index]->block(0, 0, 1, num_to_update) =
         (*neurons[layer_index - 1]) * (*weights[layer_index - 1]);
 
-    neurons[layer_index]->block(0, 0, 1, num_to_update) = 
-      preActivation[layer_index]->block(0, 0, 1, num_to_update).unaryExpr(&smooth);
+    ActivationFunction activation = layer_index < neurons.size() - 1
+                                        ? config.hidden_activation
+                                        : config.output_activation;
+    auto activationFn = unaryActivation(activation);
+
+    neurons[layer_index]->block(0, 0, 1, num_to_update) =
+        preActivation[layer_index]
+            ->block(0, 0, 1, num_to_update)
+            .unaryExpr(activationFn);
   }
   // return output layer
   return *neurons.back();
@@ -106,16 +144,26 @@ void NeuralNetwork::propogateError(Vector expected) {
   // calculate error for hidden layers
   for (Size layer_index = error.size() - 2; layer_index >= 0; layer_index--) {
     // calculate error for hidden layers
-    
+
     Size erring_neurons = error[layer_index + 1]->size() - 1;
 
     if (layer_index == error.size() - 2)
       erring_neurons++;
-  
-    (*error[layer_index]) = 
-      error[layer_index + 1]->block(0, 0, 1, erring_neurons) * weights[layer_index + 1]->transpose();;
-    (*error[layer_index]) = 
-      error[layer_index]->cwiseProduct(preActivation[layer_index + 1]->unaryExpr(&derivativeSmooth));
+
+    (*error[layer_index]) =
+        error[layer_index + 1]->block(0, 0, 1, erring_neurons) *
+        weights[layer_index + 1]->transpose();
+    ;
+
+    auto activation = layer_index < error.size() - 2 ? config.hidden_activation
+                                                     : config.output_activation;
+
+    auto deActivation = unaryActivationDerivative(
+        layer_index < error.size() - 2 ? config.hidden_activation
+                                       : config.output_activation);
+
+    (*error[layer_index]) = error[layer_index]->cwiseProduct(
+        preActivation[layer_index + 1]->unaryExpr(deActivation));
 
     if (error[layer_index]->hasNaN()) {
       std::cout << "NaN in error!" << '\n' << *error[layer_index] << '\n';
@@ -147,7 +195,6 @@ void NeuralNetwork::updateWeights(Scalar learning_rate) {
         layer_weights->coeffRef(row, col) -= delta;
       }
     }
-
   }
 }
 
@@ -168,17 +215,17 @@ Vector NeuralNetwork::teach(Vector input, Vector expected,
   return score;
 }
 
-// TODO: make this configurable?
-#define DECAY_RATE 0.001
-#define CYCLE_LENGTH 1000
-
-Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size epoch) {
-  return (top_rate - ((top_rate - bot_rate) * ((epoch % CYCLE_LENGTH) / CYCLE_LENGTH))) / 
-          (1 + DECAY_RATE * epoch);
+Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size cycle_length,
+                         Scalar decay_rate, Size epoch) {
+  return (top_rate -
+          ((top_rate - bot_rate) * ((epoch % cycle_length) / cycle_length))) /
+         (1 + decay_rate * epoch);
 }
 
-void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
-                          Scalar bot_rate, std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook) {
+void NeuralNetwork::train(
+    TrainingData data, Size epochs,
+    std::function<int(Size epoch, Scalar error, Scalar learning_rate)>
+        trainStatisticHook) {
 
   Scalar first_error, last_error;
 
@@ -189,7 +236,9 @@ void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
 
     // calculate dynamic learning rate
 
-    Scalar dynamic_learning_rate = dyn_learning_rate(top_rate, bot_rate, epoch);
+    Scalar dynamic_learning_rate =
+        dyn_learning_rate(config.top_rate, config.bot_rate, config.cycle_length,
+                          config.decay_rate, epoch);
 
     for (Size i = 0; i < data.size(); i++) {
       Vector score =
@@ -207,14 +256,13 @@ void NeuralNetwork::train(TrainingData data, Size epochs, Scalar top_rate,
 
     trainStatisticHook(epoch, res_error, dynamic_learning_rate);
   }
-
-
-  training_epochs += epochs;
 }
 
-Scalar NeuralNetwork::test(TrainingData data, std::function<int (Vector, Vector, Scalar)> testHook) {
+Scalar
+NeuralNetwork::test(TrainingData data,
+                    std::function<int(Vector, Vector, Scalar)> testHook) {
   // test the network with a set of examples
-  
+
   Scalar res_error = 0.0;
 
   for (Size i = 0; i < data.size(); i++) {

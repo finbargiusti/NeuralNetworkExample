@@ -32,11 +32,24 @@ struct TrainingDatum {
 
 typedef std::vector<TrainingDatum> TrainingData;
 
+enum ActivationFunction {
+  TANH,
+  SIGMOID,
+  BINARY,
+  NONE
+};
+
+struct Configuration {
+  Scalar top_rate, bot_rate, decay_rate;
+  Size cycle_length;
+  ActivationFunction hidden_activation, output_activation;
+};
+
 class NeuralNetwork {
 public:
   // Initialise the neural network give topology and learning rate
-  NeuralNetwork(Topology topology);
-  NeuralNetwork(Topology topology, NetworkWeights weights);
+  NeuralNetwork(Configuration c, Topology topology);
+  NeuralNetwork(Configuration c, Topology topology, NetworkWeights weights);
 
   // we need to add functions to read and write from disk.
   // (these will assume correctly formatted data so BE WARNED)
@@ -49,7 +62,7 @@ public:
   Vector generate(Vector input);
 
   // returns final error value
-  void train(TrainingData data, Size epochs, Scalar bot_rate, Scalar top_rate, std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook);
+  void train(TrainingData data, Size epochs, std::function<int(Size epoch, Scalar error, Scalar learning_rate)> trainStatisticHook);
 
   // test on a set of data, and return the average absolute error
   Scalar test(TrainingData data, std::function<int(Vector input, Vector output, Scalar error)> testHook);
@@ -90,11 +103,7 @@ private:
   // calculated error for each layer's neurons
   NetworkData error;
 
-  //  useful for logging purposes only
-  //{
-  Size training_epochs;
-  //}
-
+  Configuration config;
 
 };
 
