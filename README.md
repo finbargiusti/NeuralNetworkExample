@@ -67,3 +67,4 @@ For example, you can first run the following to build the release binary;
 Then run the arithmetic network for testing:
 
 `$ release/main networks/arithmetic`
+
