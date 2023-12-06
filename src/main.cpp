@@ -219,7 +219,10 @@ int main(int argc, char **argv) {
         return 1;
       });
 
-      std::cout << "Average error: " << average_error << std::endl;
+      if (topology.back() == 1)
+        std::cout << "Average error: " << average_error << std::endl;
+      else
+        std::cout << "Accuracy: " << average_error * 100 << "%" << std::endl;
 
       continue;
     }

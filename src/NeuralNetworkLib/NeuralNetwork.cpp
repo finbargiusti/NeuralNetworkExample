@@ -227,7 +227,9 @@ Scalar NeuralNetwork::test(TrainingData data,
     auto error = (output - data[i].expected).unaryExpr(&sabs).sum();
     testHook(data[i].input, output, error);
     if (output.size() > 1) {
-      accuracy++;
+      auto max = output.maxCoeff();
+      if (output.unaryExpr([max](Scalar x) -> Scalar { return x == max ? 1.0 : 0.0; }) == data[i].expected)
+        accuracy++;
     } else {
       accuracy += error;
     }

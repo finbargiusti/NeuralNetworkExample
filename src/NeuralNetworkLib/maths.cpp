@@ -33,40 +33,11 @@ std::function<Scalar(Scalar)> unaryActivationDerivative(ActivationFunction a) {
   }
 }
 
-Vector activation(Vector v, ActivationFunction a) {
-  if (a == ActivationFunction::SOFTMAX) {
-    Scalar max = v.maxCoeff();
-    Vector exps = v.unaryExpr([max](Scalar x) -> Scalar { return exp(x - max); });
-    Scalar sum = exps.sum();
-
-    return exps / sum;
-  } else {
-    auto activationFn = unaryActivation(a);
-    return v.unaryExpr(activationFn);
-  }
-}
-
-Vector activationDerivative(Vector v, ActivationFunction a) {
-  // if (a == ActivationFunction::SOFTMAX) {
-  //   // calculate softmax derivative
-  //   Vector softmax = activation(v, ActivationFunction::SOFTMAX);
-  //   softmax = softmax.array() * (1 - softmax.array());
-  //   Matrix softmax_diag = softmax.asDiagonal();
-  //   Scalar softmax_outer = softmax.dot(softmax);
-  //   Matrix jacob = (softmax_diag.array() - softmax_outer).matrix();
-  //
-  //   return jacob * v.transpose();
-  // } else {
-    auto activationFn = unaryActivationDerivative(a);
-    return v.unaryExpr(activationFn);
-  // }
-}
 
   Scalar sabs(Scalar x) { return x > 0 ? x : -x; }
 
   Scalar dyn_learning_rate(Scalar top_rate, Scalar bot_rate, Size cycle_length,
                            Scalar decay_rate, Size epoch) {
-    return (top_rate -
-            ((top_rate - bot_rate) * ((epoch % cycle_length) / cycle_length))) /
+    return (top_rate - ((top_rate - bot_rate) * ((float)(epoch % cycle_length) / cycle_length))) /
            (1 + decay_rate * epoch);
   }
