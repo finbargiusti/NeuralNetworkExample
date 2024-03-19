@@ -1,5 +1,3 @@
-# COMP30230 Finbar Giusti (21372821) Neural Network assignment 
-
 To configure the project you can run the `configure.sh` file, 
 which will create build directories `debug` and `release`.
 
