@@ -10,7 +10,6 @@
 **/CTestTestfile.cmake
 **/.cache
 **/.DS_Store
-./NeuralNetworkLib/
 ./main
 .Rproj.user
 debug/NeuralNetworkLib/libNeuralNetworkLib.a
